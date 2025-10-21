@@ -67,17 +67,14 @@ def launch_setup(context: LaunchContext):
         arguments=["joint_state_broadcaster", "-c", CM],
     )
 
-    position_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=["position_controllers", "-c", CM],
-    )
-
-    slam_toolbox_node = Node(
-        package='slam_toolbox',
-        executable='async_slam_toolbox_node',
-        parameters=[ slam_params_file, {'use_sim_time': True} ],
-    )
+    # also removed the position spawner from the launch file
+    
+    # SLAM Toolbox disabled - no LiDAR sensor
+    # slam_toolbox_node = Node(
+    #     package='slam_toolbox',
+    #     executable='async_slam_toolbox_node',
+    #     parameters=[ slam_params_file, {'use_sim_time': True} ],
+    # )
 
     battery_node = Node(
         package='turbopi_ros',
@@ -95,18 +92,6 @@ def launch_setup(context: LaunchContext):
         package='turbopi_ros',
         executable='sonar_node',
         parameters=[],
-    )
-
-    start_lidar = ExecuteProcess(
-        cmd=[
-            [
-                FindExecutable(name="ros2"),
-                " service call ",
-                "/start_motor ",
-                "std_srvs/srv/Empty",
-            ]
-        ],
-        shell=True,
     )
 
     v4l2_camera_node = Node(
@@ -130,19 +115,13 @@ def launch_setup(context: LaunchContext):
         )
     )
 
-    delayed_position_spawner = RegisterEventHandler(
-        event_handler=OnProcessExit(
-            target_action=joint_broad_spawner,
-            on_exit=[position_spawner],
-        )
-    )
-
-    delayed_slam_toolbox_node_spawner = RegisterEventHandler(
-        event_handler=OnProcessExit(
-            target_action=joint_broad_spawner,
-            on_exit=[start_lidar, slam_toolbox_node],
-        )
-    )
+    # SLAM Toolbox spawner disabled - no LiDAR sensor
+    # delayed_slam_toolbox_node_spawner = RegisterEventHandler(
+    #     event_handler=OnProcessExit(
+    #         target_action=joint_broad_spawner,
+    #         on_exit=[start_lidar, slam_toolbox_node],
+    #     )
+    # )
 
     delayed_infrared_node_spawner = RegisterEventHandler(
         event_handler=OnProcessStart(
@@ -165,36 +144,19 @@ def launch_setup(context: LaunchContext):
         )
     )
 
-    stop_lidar_on_shutdown = RegisterEventHandler(
-        event_handler=OnProcessExit(
-            target_action=slam_toolbox_node,
-            on_exit=[
-                LogInfo(msg='Stopping lidar'),
-                OpaqueFunction(function=stop_lidar),
-                LogInfo(msg='Stopped lidar'),
-            ],
-        )
-    )
-
     nodes = [
         battery_node,
         controller_manager,
         node_robot_state_publisher,
         delayed_joint_broad_spawner,
         delayed_diff_drive_spawner,
-        delayed_position_spawner,
-        delayed_slam_toolbox_node_spawner,
+        # delayed_slam_toolbox_node_spawner,  # Disabled - no LiDAR
         delayed_infrared_node_spawner,
         delayed_sonar_node_spawner,
         delayed_v4l2_camera_node,
-        stop_lidar_on_shutdown,
     ]
 
     return nodes
-
-
-def stop_lidar(context: LaunchContext):
-    subprocess.run("ros2 service call /stop_motor std_srvs/srv/Empty", shell=True)
 
 
 def generate_launch_description():
